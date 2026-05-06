@@ -6,7 +6,7 @@ import os
 aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
 parameters = aruco.DetectorParameters()
 
-def get_wraped_board(frame, corners, ids):
+def get_wraped_board(frame, corners, ids): #this function tries to "straigten" in to a rectangle
     pts_src =np.zeros((4,2),dtype="float32")
 
     for i in range(len(ids)):
@@ -14,7 +14,7 @@ def get_wraped_board(frame, corners, ids):
         if marker_id <4 :
             pts_src[marker_id]= np.mean(corners[i][0], axis=0)
     
-    width = 800
+    width = 800 # these can be changes acording to the white board dimentions or ratio
     height =600
     pts_dts =np.array([[0,0],[width,0],[width,height],[0,height]],dtype="float32")
 
@@ -34,18 +34,18 @@ def deskew(img):
 
 hog = cv2.HOGDescriptor((20,20), (10,10), (5,5), (5,5), 9)
 
-with np.load("processed_data_hog.npz") as data:
+with np.load("processed_data_hog.npz") as data: #here we are loading the training an labeling data
     train_data = data["train_data"]
     train_labels = data["train_labels"]
 
-svm = cv2.ml.SVM_create()
+svm = cv2.ml.SVM_create() #here we are setting up the svm
 svm.setType(cv2.ml.SVM_C_SVC)
 svm.setKernel(cv2.ml.SVM_RBF)
 svm.setC(12.5)
 svm.setGamma(0.5)
 svm.train(train_data, cv2.ml.ROW_SAMPLE, train_labels)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0) #camera setings  
 cap.set(cv2.CAP_PROP_FPS, 10) 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 640)
@@ -65,11 +65,10 @@ while True:
         if len(ids) == 4:
             board_view = get_wraped_board(frame, corners, ids)
             
-            # 2. PHYSICALLY COVER THE MARKERS
-            # We "paint" white rectangles over the corners of the color image
+            # here we are trying to hide the markers so they dont get detected from the program
             m = 140  # Size of the patch in pixels
             h, w = board_view.shape[:2]
-            bg_color = (255, 255, 255) # White (or 200 for light gray if board is off-white)
+            bg_color = (255, 255, 255) 
             gray_board = cv2.cvtColor(board_view, cv2.COLOR_BGR2GRAY)
             # Draw filled white rectangles over the 4 corners
             cv2.rectangle(board_view, (0, 0), (m, m), bg_color, -1)              # Top-Left
@@ -84,7 +83,7 @@ while True:
             margin = 70 
             h_board, w_board = thresh.shape
 
-       
+            # here we are trying to locate blobs of in on the white board most likely letters
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             kernel = np.ones((3,3), np.uint8)
             thresh = cv2.dilate(thresh, kernel, iterations=1)
@@ -92,7 +91,7 @@ while True:
 
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            for cnt in contours:
+            for cnt in contours:#here we have collected the location of the blobs and we go over identifying each blob to an acording letter
                 x, y, w, h = cv2.boundingRect(cnt)
                 if 20 < w < 150 and 20 < h < 150:
                     roi = thresh[y:y+h, x:x+w]
